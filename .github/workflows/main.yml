@@ -7,7 +7,7 @@ permissions:
 jobs: 
   build-and-deploy:
     runs-on: ubuntu-latest
-    Environment: Production
+    tag: Production
     steps:
       - name: 'Az CLI login'
         uses: azure/login@v1
