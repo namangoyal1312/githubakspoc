@@ -43,7 +43,7 @@ env:
 
 jobs:
   terraform_plan:
-    runs-on: gitactionpoc-aks
+    runs-on: ubuntu-latest
     name: terraform plan
     steps:
       - uses: actions/checkout@v3
