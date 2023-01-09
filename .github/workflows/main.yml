@@ -1,23 +1,98 @@
-name: Run Azure Login with OIDC
-on: 
-  push:
-    branches: [ main ]
+name: Azure Terraform
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        required: true
+        type: choice
+        options:
+          - prod
+      path:
+        required: true
+        type: choice
+        options:
+          - postgresql
+          - keyvault
+          - redis
+          - mysql
+          - storageaccount
+          - cosmosdb
+          - mongo
+          - elasticsearch
+          - trafficfilter
+          - activemq
+          - availability_set
 
 permissions:
-      id-token: write
-      contents: read
-jobs: 
-  build-and-deploy:
-    runs-on: ubuntu-latest
+  id-token: write # This is required for requesting the JWT
+  contents: read
+
+env:
+  ARM_USE_OIDC: "true"
+#  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+#  ARM_CLIENT_ID: ${{ secrets.ZP_CLIENT_ID }}
+#  ARM_SUBSCRIPTION_ID: ${{ secrets.ZP_SUBSCRIPTION_ID }}
+# ARM_TENANT_ID: "04ec3963-dddc-45fb-afb7-85fa38e19b99"
+#  ARM_CLIENT_ID: a42d77a0-4baf-4945-a5a2-bfe4eb07be60
+#  ARM_SUBSCRIPTION_ID: "08c28fa2-37ad-4dad-8437-98135c927c98"
+  client-id: a42d77a0-4baf-4945-a5a2-bfe4eb07be60
+  tenant-id: 00709f29-2581-47e7-8b9e-1043015e06cd
+  subscription-id: 8a228e0f-6360-4618-8817-357cef216c3d
+  EC_API_KEY: ${{ secrets.EC_API_KEY }}
+  AZURE_FEDERATED_TOKEN_FILE: /var/run/secrets/azure/tokens/azure-identity-token
+
+jobs:
+  terraform_plan:
+    runs-on: zs-oyorooms
+    name: terraform plan
     steps:
-      - name: 'Az CLI login'
-        uses: azure/login@v1
-        with:
-          client-id: a42d77a0-4baf-4945-a5a2-bfe4eb07be60
-          tenant-id: 00709f29-2581-47e7-8b9e-1043015e06cd
-          subscription-id: 8a228e0f-6360-4618-8817-357cef216c3d
-  
-      - name: 'Run az commands'
+      - uses: actions/checkout@v3
+      - name: install terraform
         run: |
-          az account show
-          az group list
+          curl -fsSL -o terraform_1.3.3_linux_amd64.zip https://releases.hashicorp.com/terraform/1.3.3/terraform_1.3.3_linux_amd64.zip
+          unzip terraform_1.3.3_linux_amd64.zip
+          chmod +x terraform
+          sudo mv terraform /usr/local/bin
+          rm terraform_1.3.3_linux_amd64.zip
+          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -t "04ec3963-dddc-45fb-afb7-85fa38e19b99" --federated-token $(cat $AZURE_FEDERATED_TOKEN_FILE)
+      - name: terraform plan
+        run: |
+          cd ${{ inputs.env }}/${{ inputs.path }}
+          terraform init
+          terraform plan -no-color -out=tf.out -parallelism=32
+          echo '```diff' >> $GITHUB_STEP_SUMMARY
+          terraform show -no-color tf.out >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo $AZURE_FEDERATED_TOKEN_FILE
+          echo $AZURE_CLIENT_ID
+          echo $AZURE_TENANT_ID
+      - uses: actions/upload-artifact@v3
+        with:
+          name: tf-plan-out
+          path: ${{ inputs.env }}/${{ inputs.path }}/tf.out
+          retention-days: 1
+
+  terraform_apply:
+    runs-on: zs-oyorooms
+    name: terraform apply
+    environment: 'prod'
+    needs: terraform_plan
+    steps:
+      - uses: actions/checkout@v3
+      - name: install terraform
+        run: |
+          curl -fsSL -o terraform_1.3.3_linux_amd64.zip https://releases.hashicorp.com/terraform/1.3.3/terraform_1.3.3_linux_amd64.zip
+          unzip terraform_1.3.3_linux_amd64.zip
+          chmod +x terraform
+          sudo mv terraform /usr/local/bin
+          rm terraform_1.3.3_linux_amd64.zip
+      - name: Download a single artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: tf-plan-out
+          path: ${{ inputs.env }}/${{ inputs.path }}
+      - name: terraform apply
+        run: |
+          cd ${{ inputs.env }}/${{ inputs.path }}
+          terraform init
+          terraform apply -no-color -auto-approve -parallelism=32 tf.out 
