@@ -43,7 +43,7 @@ env:
 
 jobs:
   terraform_plan:
-    runs-on: ubuntu
+    runs-on: gitactionpoc-aks
     name: terraform plan
     steps:
       - uses: actions/checkout@v3
@@ -73,7 +73,7 @@ jobs:
           retention-days: 1
 
   terraform_apply:
-    runs-on: ubuntu
+    runs-on: gitactionpoc-aks
     name: terraform apply
     environment: 'prod'
     needs: terraform_plan
