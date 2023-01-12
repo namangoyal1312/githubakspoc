@@ -39,7 +39,7 @@ env:
   tenant-id: 00709f29-2581-47e7-8b9e-1043015e06cd
   subscription-id: 8a228e0f-6360-4618-8817-357cef216c3d
 #  EC_API_KEY: ${{ secrets.EC_API_KEY }}
-#  AZURE_FEDERATED_TOKEN_FILE: /var/run/secrets/azure/tokens/azure-identity-token
+  AZURE_FEDERATED_TOKEN_FILE: /var/run/secrets/azure/tokens/azure-identity-token
 
 jobs:
   terraform_plan:
