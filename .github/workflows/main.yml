@@ -54,6 +54,7 @@ jobs:
           chmod +x terraform
           sudo mv terraform /usr/local/bin
           rm terraform_1.3.3_linux_amd64.zip
+          sudo apt-get install azure-cli
           az login --service-principal -u 3546822a-2b66-4265-b4f4-1e99d2a68848 -t "04ec3963-dddc-45fb-afb7-85fa38e19b99" --federated-token $(cat $AZURE_FEDERATED_TOKEN_FILE)
       - name: terraform plan
         run: |
